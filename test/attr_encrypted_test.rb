@@ -82,12 +82,12 @@ class AttrEncryptedTest < Minitest::Test
     @iv = SecureRandom.random_bytes(12)
   end
 
-  def test_should_store_email_in_third_party_encrypted_attributes
-    assert User.third_party_encrypted_attributes.include?(:email)
+  def test_should_store_email_in_encrypted_attributes
+    assert User._encrypted_attributes.include?(:email)
   end
 
-  def test_should_not_store_salt_in_third_party_encrypted_attributes
-    refute User.third_party_encrypted_attributes.include?(:salt)
+  def test_should_not_store_salt_in_encrypted_attributes
+    refute User._encrypted_attributes.include?(:salt)
   end
 
   def test_attr_encrypted_should_return_true_for_email
@@ -95,7 +95,7 @@ class AttrEncryptedTest < Minitest::Test
   end
 
   def test_attr_encrypted_should_not_use_the_same_attribute_name_for_two_attributes_in_the_same_line
-    refute_equal User.third_party_encrypted_attributes[:email][:attribute], User.third_party_encrypted_attributes[:without_encoding][:attribute]
+    refute_equal User._encrypted_attributes[:email][:attribute], User._encrypted_attributes[:without_encoding][:attribute]
   end
 
   def test_attr_encrypted_should_return_false_for_salt
@@ -154,7 +154,7 @@ class AttrEncryptedTest < Minitest::Test
   def test_should_decrypt_email_when_reading
     @user = User.new
     assert_nil @user.email
-    options = @user.third_party_encrypted_attributes[:email]
+    options = @user._encrypted_attributes[:email]
     iv = @user.send(:generate_iv, options[:algorithm])
     encoded_iv = [iv].pack(options[:encode_iv])
     salt = SecureRandom.random_bytes
@@ -222,8 +222,8 @@ class AttrEncryptedTest < Minitest::Test
     assert_equal encrypted, @user.crypted_password_test
   end
 
-  def test_should_inherit_third_party_encrypted_attributes
-    assert_equal [User.third_party_encrypted_attributes.keys, :testing].flatten.collect { |key| key.to_s }.sort, Admin.third_party_encrypted_attributes.keys.collect { |key| key.to_s }.sort
+  def test_should_inherit_encrypted_attributes
+    assert_equal [User._encrypted_attributes.keys, :testing].flatten.collect { |key| key.to_s }.sort, Admin._encrypted_attributes.keys.collect { |key| key.to_s }.sort
   end
 
   def test_should_inherit_attr_encrypted_options
@@ -233,7 +233,7 @@ class AttrEncryptedTest < Minitest::Test
 
   def test_should_not_inherit_unrelated_attributes
     assert SomeOtherClass.attr_encrypted_options.empty?
-    assert SomeOtherClass.third_party_encrypted_attributes.empty?
+    assert SomeOtherClass._encrypted_attributes.empty?
   end
 
   def test_should_evaluate_a_symbol_option
@@ -304,7 +304,7 @@ class AttrEncryptedTest < Minitest::Test
   end
 
   def test_should_work_with_aliased_attr_encryptor
-    assert User.third_party_encrypted_attributes.include?(:aliased)
+    assert User._encrypted_attributes.include?(:aliased)
   end
 
   def test_should_always_reset_options
@@ -385,8 +385,8 @@ class AttrEncryptedTest < Minitest::Test
   end
 
   def test_should_specify_the_default_algorithm
-    assert YetAnotherClass.third_party_encrypted_attributes[:email][:algorithm]
-    assert_equal YetAnotherClass.third_party_encrypted_attributes[:email][:algorithm], 'aes-256-gcm'
+    assert YetAnotherClass._encrypted_attributes[:email][:algorithm]
+    assert_equal YetAnotherClass._encrypted_attributes[:email][:algorithm], 'aes-256-gcm'
   end
 
   def test_should_not_encode_iv_when_encode_iv_is_false
@@ -469,14 +469,14 @@ class AttrEncryptedTest < Minitest::Test
     assert_nil user.encrypted_with_true_if_iv
   end
 
-  def test_third_party_encrypted_attributes_state_is_not_shared
+  def test_encrypted_attributes_state_is_not_shared
     user = User.new
     user.ssn = '123456789'
 
     another_user = User.new
 
-    assert_equal :encrypting, user.third_party_encrypted_attributes[:ssn][:operation]
-    assert_nil another_user.third_party_encrypted_attributes[:ssn][:operation]
+    assert_equal :encrypting, user._encrypted_attributes[:ssn][:operation]
+    assert_nil another_user._encrypted_attributes[:ssn][:operation]
   end
 
   def test_should_not_by_default_generate_key_when_attribute_is_empty
