@@ -200,7 +200,7 @@ class LegacyAttrEncryptedTest < Minitest::Test
     assert_equal Encryptor.encrypt(:value => 'testing', :key => 'LegacyUser', insecure_mode: true, algorithm: 'aes-256-cbc'), @user.crypted_password_test
   end
 
-  def test_should_inherit__encrypted_attributes
+  def test_should_inherit_encrypted_attributes
     assert_equal [LegacyUser._encrypted_attributes.keys, :testing].flatten.collect { |key| key.to_s }.sort, LegacyAdmin._encrypted_attributes.keys.collect { |key| key.to_s }.sort
   end
 
