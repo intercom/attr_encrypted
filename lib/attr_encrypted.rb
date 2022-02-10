@@ -10,7 +10,7 @@ module AttrEncrypted
     base.class_eval do
       include InstanceMethods
       attr_writer :attr_encrypted_options
-      @attr_encrypted_options, @third_party_encrypted_attributes = {}, {}
+      @attr_encrypted_options, @_encrypted_attributes = {}, {}
     end
   end
 
@@ -173,7 +173,7 @@ module AttrEncrypted
         value.respond_to?(:empty?) ? !value.empty? : !!value
       end
 
-      third_party_encrypted_attributes[attribute.to_sym] = options.merge(attribute: encrypted_attribute_name)
+      _encrypted_attributes[attribute.to_sym] = options.merge(attribute: encrypted_attribute_name)
     end
   end
 
@@ -223,7 +223,7 @@ module AttrEncrypted
   #   User.attr_encrypted?(:name)  # false
   #   User.attr_encrypted?(:email) # true
   def attr_encrypted?(attribute)
-    third_party_encrypted_attributes.has_key?(attribute.to_sym)
+    _encrypted_attributes.has_key?(attribute.to_sym)
   end
 
   # Decrypts a value for the attribute specified
@@ -236,7 +236,7 @@ module AttrEncrypted
   #
   #   email = User.decrypt(:email, 'SOME_ENCRYPTED_EMAIL_STRING')
   def decrypt(attribute, encrypted_value, options = {})
-    options = third_party_encrypted_attributes[attribute.to_sym].merge(options)
+    options = _encrypted_attributes[attribute.to_sym].merge(options)
     if options[:if] && !options[:unless] && not_empty?(encrypted_value)
       encrypted_value = encrypted_value.unpack(options[:encode]).first if options[:encode]
       value = options[:encryptor].send(options[:decrypt_method], options.merge!(value: encrypted_value))
@@ -262,7 +262,7 @@ module AttrEncrypted
   #
   #   encrypted_email = User.encrypt(:email, 'test@example.com')
   def encrypt(attribute, value, options = {})
-    options = third_party_encrypted_attributes[attribute.to_sym].merge(options)
+    options = _encrypted_attributes[attribute.to_sym].merge(options)
     if options[:if] && !options[:unless] && (options[:allow_empty_value] || not_empty?(value))
       value = options[:marshal] ? options[:marshaler].send(options[:dump_method], value) : value.to_s
       encrypted_value = options[:encryptor].send(options[:encrypt_method], options.merge!(value: value))
@@ -286,9 +286,9 @@ module AttrEncrypted
   #     attr_encrypted :email, key: 'my secret key'
   #   end
   #
-  #   User.third_party_encrypted_attributes # { email: { attribute: 'encrypted_email', key: 'my secret key' } }
-  def third_party_encrypted_attributes
-    @third_party_encrypted_attributes ||= superclass.third_party_encrypted_attributes.dup
+  #   User._encrypted_attributes # { email: { attribute: 'encrypted_email', key: 'my secret key' } }
+  def _encrypted_attributes
+    @_encrypted_attributes ||= superclass._encrypted_attributes.dup
   end
 
   # Forwards calls to :encrypt_#{attribute} or :decrypt_#{attribute} to the corresponding encrypt or decrypt method
@@ -326,8 +326,8 @@ module AttrEncrypted
     #  @user = User.new('some-secret-key')
     #  @user.decrypt(:email, 'SOME_ENCRYPTED_EMAIL_STRING')
     def decrypt(attribute, encrypted_value)
-      third_party_encrypted_attributes[attribute.to_sym][:operation] = :decrypting
-      third_party_encrypted_attributes[attribute.to_sym][:value_present] = self.class.not_empty?(encrypted_value)
+      _encrypted_attributes[attribute.to_sym][:operation] = :decrypting
+      _encrypted_attributes[attribute.to_sym][:value_present] = self.class.not_empty?(encrypted_value)
       self.class.decrypt(attribute, encrypted_value, evaluated_attr_encrypted_options_for(attribute))
     end
 
@@ -347,18 +347,18 @@ module AttrEncrypted
     #  @user = User.new('some-secret-key')
     #  @user.encrypt(:email, 'test@example.com')
     def encrypt(attribute, value)
-      third_party_encrypted_attributes[attribute.to_sym][:operation] = :encrypting
-      third_party_encrypted_attributes[attribute.to_sym][:value_present] = self.class.not_empty?(value)
+      _encrypted_attributes[attribute.to_sym][:operation] = :encrypting
+      _encrypted_attributes[attribute.to_sym][:value_present] = self.class.not_empty?(value)
       self.class.encrypt(attribute, value, evaluated_attr_encrypted_options_for(attribute))
     end
 
     # Copies the class level hash of encrypted attributes with virtual attribute names as keys
     # and their corresponding options as values to the instance
     #
-    def third_party_encrypted_attributes
-      @third_party_encrypted_attributes ||= begin
+    def _encrypted_attributes
+      @_encrypted_attributes ||= begin
         duplicated= {}
-        self.class.third_party_encrypted_attributes.map { |key, value| duplicated[key] = value.dup }
+        self.class._encrypted_attributes.map { |key, value| duplicated[key] = value.dup }
         duplicated
       end
     end
@@ -368,7 +368,7 @@ module AttrEncrypted
       # Returns attr_encrypted options evaluated in the current object's scope for the attribute specified
       def evaluated_attr_encrypted_options_for(attribute)
         evaluated_options = Hash.new
-        attributes = third_party_encrypted_attributes[attribute.to_sym]
+        attributes = _encrypted_attributes[attribute.to_sym]
         attribute_option_value = attributes[:attribute]
 
         [:if, :unless, :value_present, :allow_empty_value].each do |option|
